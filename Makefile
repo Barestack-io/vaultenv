@@ -1,5 +1,5 @@
 BINARY    := vaultenv
-MODULE    := github.com/scaler/vaultenv
+MODULE    := github.com/Barestack-io/vaultenv
 CMD       := ./cmd/vaultenv
 BUILD_DIR := build
 

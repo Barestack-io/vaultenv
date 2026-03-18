@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/scaler/vaultenv/internal/vault"
+	"github.com/Barestack-io/vaultenv/internal/vault"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/nacl/secretbox"
 )

@@ -1,6 +1,6 @@
 package crypto
 
-import "github.com/scaler/vaultenv/internal/vault"
+import "github.com/Barestack-io/vaultenv/internal/vault"
 
 // Engine defines the encryption/decryption interface.
 // Implementations can use different crypto backends (NaCl, age, KMS, etc.).

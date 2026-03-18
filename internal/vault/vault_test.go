@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/scaler/vaultenv/internal/storage"
+	"github.com/Barestack-io/vaultenv/internal/storage"
 )
 
 func TestNewVaultConfig(t *testing.T) {

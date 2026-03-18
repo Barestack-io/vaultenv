@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/scaler/vaultenv/internal/storage"
+	"github.com/Barestack-io/vaultenv/internal/storage"
 )
 
 const deployKeyPrefix = "vaultenv_dk_v1_"
