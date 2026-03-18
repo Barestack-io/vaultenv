@@ -1,4 +1,4 @@
-module github.com/scaler/vaultenv
+module github.com/Barestack-io/vaultenv
 
 go 1.25.0
 

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/scaler/vaultenv/internal/config"
-	"github.com/scaler/vaultenv/internal/crypto"
-	"github.com/scaler/vaultenv/internal/storage"
-	"github.com/scaler/vaultenv/internal/vault"
+	"github.com/Barestack-io/vaultenv/internal/config"
+	"github.com/Barestack-io/vaultenv/internal/crypto"
+	"github.com/Barestack-io/vaultenv/internal/storage"
+	"github.com/Barestack-io/vaultenv/internal/vault"
 	"github.com/spf13/cobra"
 )
 
