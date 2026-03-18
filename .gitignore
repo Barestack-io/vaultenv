@@ -1,0 +1,20 @@
+# Binary
+vaultenv
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Test
+coverage.out
+
+# Local vaultenv config
+.vaultenv
+.env
+.env.*
