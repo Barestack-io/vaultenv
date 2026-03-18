@@ -1,14 +1,14 @@
 # vaultenv
 
-**Stop sharing `.env` files over Slack.** vaultenv lets your team securely sync environment variables using GitHub for authentication and client-side encryption. No servers to run, no cloud accounts to set up -- just install and go.
+**Securely share `.env` files with your team.** vaultenv lets your team securely sync environment variables using GitHub for authentication and client-side encryption. No servers to run, no cloud accounts to set up. Vaulenv is completely free, just install and go.
 
 ## Why vaultenv?
 
-Every dev team has the same problem: you need to share database URLs, API keys, and other secrets, but there's no good way to do it. People end up pasting secrets in Slack DMs, emailing `.env` files, or committing them to private repos in plaintext.
+Every dev team has the same problem: you need to share database URLs, API keys, and other secrets. People end up pasting secrets in Slack DMs, emailing `.env` files, or committing them to private repos in plaintext. Paid alternatives exist that require cloud accounts and per developer fees.
 
-vaultenv fixes this:
+vaultenv offers:
 
-- **Encrypted end-to-end**: Secrets are encrypted on your machine before they ever leave it. GitHub stores only encrypted blobs -- even GitHub admins can't read your secrets.
+- **Encrypted end-to-end**: Secrets are encrypted on your machine before they ever leave it. GitHub stores only encrypted blobs (inside of a private repo) so even GitHub admins can't read your secrets.
 - **Zero infrastructure**: No servers, no cloud accounts, no databases. Everything runs through GitHub repos you already have.
 - **Team-friendly**: The vault owner controls who has access. New team members request access, the owner approves, and they're in.
 - **Works with your workflow**: Push and pull `.env` files like you push and pull code. Optional git hooks auto-sync on every `git push`.
@@ -17,14 +17,14 @@ vaultenv fixes this:
 
 ## Supported Platforms
 
-| OS | Architecture | Binary |
-|---------|-------------|--------|
-| Linux | x86_64 (amd64) | `vaultenv-linux-amd64` |
-| Linux | ARM64 (aarch64) | `vaultenv-linux-arm64` |
-| macOS | Intel (amd64) | `vaultenv-darwin-amd64` |
-| macOS | Apple Silicon (arm64) | `vaultenv-darwin-arm64` |
-| Windows | x86_64 (amd64) | `vaultenv-windows-amd64.exe` |
-| Windows | ARM64 | `vaultenv-windows-arm64.exe` |
+| OS      | Architecture          | Binary                       |
+| ------- | --------------------- | ---------------------------- |
+| Linux   | x86_64 (amd64)        | `vaultenv-linux-amd64`       |
+| Linux   | ARM64 (aarch64)       | `vaultenv-linux-arm64`       |
+| macOS   | Intel (amd64)         | `vaultenv-darwin-amd64`      |
+| macOS   | Apple Silicon (arm64) | `vaultenv-darwin-arm64`      |
+| Windows | x86_64 (amd64)        | `vaultenv-windows-amd64.exe` |
+| Windows | ARM64                 | `vaultenv-windows-arm64.exe` |
 
 ## Install
 
@@ -57,7 +57,7 @@ make build        # builds for your current platform
 make build-all    # cross-compile for all 6 platforms
 ```
 
-**Windows**: Download the `.exe` binary from the [latest release](https://github.com/Barestack-io/vaultenv/releases/latest) and add it to your PATH.
+**Windows**: Download the `.exe` binary from the [latest release](https://github.com/Barestack-io/vaultenv/releases/latest) and add it to your PATH. NOTE: We have not tested vaultenv on windows. YMMV!
 
 ## Quick Start
 
@@ -76,6 +76,9 @@ vaultenv link
 # Step 3: Push your staging env to the team
 vaultenv push staging
 # Reads .env.staging, encrypts it, and uploads to the vault
+
+# OR Push your  personal .env file to the vault (see Personal Environments below)
+vaultenv push
 
 # Step 4: A teammate pulls it on their machine
 vaultenv pull staging
@@ -272,11 +275,11 @@ vaultenv pull                # downloads, decrypts, writes .env
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--export` | Print `export KEY=VALUE` lines to stdout instead of writing a file. Use with `eval $(vaultenv pull staging --export)` to inject into the current shell. |
-| `--format github-env` | Append `KEY=VALUE` lines to the file at `$GITHUB_ENV` (for GitHub Actions). |
-| `--deploy-key <token>` | Use a deployment key token directly (overrides the `VAULTENV_DEPLOY_KEY` env var). |
+| Flag                   | Description                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--export`             | Print `export KEY=VALUE` lines to stdout instead of writing a file. Use with `eval $(vaultenv pull staging --export)` to inject into the current shell. |
+| `--format github-env`  | Append `KEY=VALUE` lines to the file at `$GITHUB_ENV` (for GitHub Actions).                                                                             |
+| `--deploy-key <token>` | Use a deployment key token directly (overrides the `VAULTENV_DEPLOY_KEY` env var).                                                                      |
 
 **CI/CD mode**: When the `VAULTENV_DEPLOY_KEY` environment variable is set, `pull` operates non-interactively. It decodes the deployment key token, uses `GITHUB_TOKEN` or `VAULTENV_GITHUB_TOKEN` for vault repo access, and requires no local config files.
 
@@ -311,8 +314,8 @@ vaultenv deploy-key create ci-everything
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
+| Flag                         | Description                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
 | `--environments <env1,env2>` | Comma-separated list of environments this key can decrypt. Defaults to all shared environments. |
 
 **Output**: Prints a deployment key token (a long opaque string starting with `vaultenv_dk_v1_`). This token is shown **once** and cannot be retrieved again -- the private key is not stored anywhere in the vault. Store it immediately as a CI/CD secret.
@@ -400,12 +403,12 @@ jobs:
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `VAULTENV_DEPLOY_KEY` | Deployment key token for non-interactive decryption |
+| Variable                | Description                                                             |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `VAULTENV_DEPLOY_KEY`   | Deployment key token for non-interactive decryption                     |
 | `VAULTENV_GITHUB_TOKEN` | GitHub token for vault repo access (takes priority over `GITHUB_TOKEN`) |
-| `GITHUB_TOKEN` | Fallback GitHub token if `VAULTENV_GITHUB_TOKEN` is not set |
-| `VAULTENV_CONFIG_DIR` | Override the config directory (default: `~/.config/vaultenv`) |
+| `GITHUB_TOKEN`          | Fallback GitHub token if `VAULTENV_GITHUB_TOKEN` is not set             |
+| `VAULTENV_CONFIG_DIR`   | Override the config directory (default: `~/.config/vaultenv`)           |
 
 ## Local File Layout
 
