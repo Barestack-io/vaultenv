@@ -1,5 +1,5 @@
-# Binary
-vaultenv
+# Binary (root only, not cmd/vaultenv/)
+/vaultenv
 build/
 
 # IDE
