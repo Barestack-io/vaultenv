@@ -62,11 +62,13 @@ func runPassphraseRotate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	crypto.PrintPassphraseFingerprint("current vault passphrase", current)
 
 	newPass, err := crypto.PromptPassphraseCreate("New vault passphrase: ", "Confirm new passphrase: ")
 	if err != nil {
 		return err
 	}
+	crypto.PrintPassphraseFingerprint("new vault passphrase", newPass)
 
 	store := storage.NewGitHubStorage(cfg.AccessToken)
 	if err := personal.RotatePassphrase(store, cfg.Username, current, newPass); err != nil {
@@ -99,6 +101,7 @@ func runPassphraseRecover(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	crypto.PrintPassphraseFingerprint("new vault passphrase", newPass)
 
 	store := storage.NewGitHubStorage(cfg.AccessToken)
 	if err := personal.RecoverPassphraseFromLocalKey(store, cfg.Username, privKey, newPass); err != nil {

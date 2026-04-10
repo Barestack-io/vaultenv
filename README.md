@@ -172,7 +172,11 @@ This means each user can only decrypt files they've been explicitly authorized f
 
 **Key portability**: Your private key is encrypted with your vault passphrase (Argon2id + secretbox) and stored in your personal vault. When you `vaultenv login` on a new machine, it downloads the encrypted key and asks for your passphrase. The underlying X25519 keypair never changes, so changing your passphrase only requires re-encrypting the key blob -- no re-encryption of any environment files. Use **`vaultenv passphrase rotate`** (on a machine where you can unlock) to pick a new passphrase and update the blob in your personal repo.
 
-**Cross-platform cryptography:** The same algorithms and Go implementations are used on every OS and CPU architecture vaultenv supports. Argon2id key derivation (`golang.org/x/crypto/argon2`), NaCl `secretbox` (XSalsa20-Poly1305), and X25519 (`curve25519`) are pure Go here and deterministic for a given passphrase and ciphertext. Passphrases are interpreted as UTF-8 strings; use the same characters on every machine. Hidden terminal input is handled via `golang.org/x/term` on Unix and Windows. Raw key files under `keys/` are 32-byte binary blobs (not text), so line endings do not matter.
+**Cross-platform cryptography:** The same algorithms and Go implementations are used on every OS and CPU architecture vaultenv supports. Argon2id key derivation (`golang.org/x/crypto/argon2`), NaCl `secretbox` (XSalsa20-Poly1305), and X25519 (`curve25519`) are pure Go here and deterministic for a given passphrase and ciphertext. Passphrases are interpreted as UTF-8 strings after **normalization** (see below). Hidden terminal input is handled via `golang.org/x/term` on Unix and Windows. Raw key files under `keys/` are 32-byte binary blobs (not text), so line endings do not matter.
+
+**Passphrase normalization:** Before validation, Argon2, and storage, vaultenv applies `NormalizePassphrase`: trim leading/trailing Unicode whitespace, strip a leading UTF-8 BOM (U+FEFF) if present, then **Unicode NFC**. That keeps the same visually typed passphrase from diverging across OS/keyboard normalization (e.g. NFD vs NFC for composed characters). Pure **ASCII** passphrases are unchanged. Extremely rare passphrases that intentionally relied on a **non-NFC** byte sequence for non-ASCII characters may fail to unlock after upgrading until you **`vaultenv passphrase rotate`** (or **recover**) once with a known passphrase.
+
+**Passphrase fingerprint (stderr):** When you **first create** a vault passphrase (`vaultenv login`), **rotate**, or **recover**, vaultenv prints a line to **stderr**: UTF-8 **byte length** and **SHA-256 (hex)** of the normalized passphrase—**not** the secret itself. Compare these values across machines if unlock misbehaves: they must match when you intend to use the same passphrase. **Security note:** fingerprints still aid offline guessing if captured; CI logs and terminal scrollback may record stderr—avoid in untrusted logging environments.
 
 ## Security Considerations
 
@@ -235,7 +239,7 @@ vaultenv login
 1. Starts the GitHub device flow -- displays a code and URL
 2. Opens your browser to github.com/login/device
 3. After you approve, stores the access token locally
-4. If this is your first time: generates an X25519 keypair, asks you to create a vault passphrase, encrypts the private key, creates your personal vault repo, and uploads the encrypted key
+4. If this is your first time: generates an X25519 keypair, asks you to create a vault passphrase (then prints a **passphrase fingerprint** to stderr), encrypts the private key, creates your personal vault repo, and uploads the encrypted key
 5. If you've used vaultenv before: downloads your encrypted private key from your personal vault and asks for your passphrase to decrypt it
 
 If decryption fails because of a mistyped passphrase, you get **up to five attempts** before the command exits, so you do not have to repeat the GitHub device flow for a single typo.
@@ -244,7 +248,7 @@ If decryption fails because of a mistyped passphrase, you get **up to five attem
 
 **Creating a passphrase:** You enter it twice (confirmation) so a typo is less likely to lock you out.
 
-**Whitespace:** Leading and trailing whitespace, including stray newlines often introduced when pasting, is stripped before validation and before decrypting your key. Deliberate spaces *inside* the passphrase are kept. If you created an older passphrase that relied on leading or trailing spaces alone, unlock may fail after upgrading; recover from a machine that still has a working `vaultenv` install or backup of `~/.config/vaultenv/keys/`, then run **`vaultenv passphrase rotate`** to set a known passphrase.
+**Whitespace and normalization:** Leading and trailing Unicode whitespace (including stray newlines from pasting) is stripped; a leading BOM is removed; then Unicode NFC is applied (see **Passphrase normalization** under Encryption above). Deliberate spaces *inside* the passphrase are kept. If you created an older passphrase that relied on leading or trailing spaces alone, or on a rare non-NFC byte sequence for non-ASCII characters, unlock may fail after upgrading; recover from a machine that still has a working `vaultenv` install or backup of `keys/`, then run **`vaultenv passphrase rotate`** or **`vaultenv passphrase recover`** to set a known passphrase.
 
 ---
 
@@ -256,7 +260,7 @@ Change the **vault passphrase** (the one that encrypts your private key in your 
 vaultenv passphrase rotate
 ```
 
-**Requirements:** You must already be logged in (`vaultenv login`). The command is interactive: it asks for your current passphrase, then for a new passphrase twice (with the same strength rules as first-time setup).
+**Requirements:** You must already be logged in (`vaultenv login`). The command is interactive: it asks for your current passphrase, then for a new passphrase twice (with the same strength rules as first-time setup). After each is entered, a **passphrase fingerprint** (length + SHA-256) is printed to **stderr** for cross-machine verification.
 
 **What it does:** Downloads your encrypted private key from `<username>/vaultenv-secrets`, decrypts it with the current passphrase, re-encrypts with the new passphrase, uploads the updated `keys/<username>.key.enc`, and refreshes your local `keys/` files under the vaultenv config directory. Shared or personal `.env` ciphertext in org vaults is **not** re-encrypted; only the wrapper around your long-term private key changes.
 
@@ -272,7 +276,7 @@ Set a **new** vault passphrase when you forgot the old one but still have **`key
 vaultenv passphrase recover
 ```
 
-**What it does:** Reads `keys/<username>.pub` from your personal GitHub repo (`<username>/vaultenv-secrets`), checks that it matches your local `private.key`, then uploads a new `keys/<username>.key.enc` encrypted with the new passphrase. Shared `.env` ciphertext in org vaults is **not** re-encrypted.
+**What it does:** Reads `keys/<username>.pub` from your personal GitHub repo (`<username>/vaultenv-secrets`), checks that it matches your local `private.key`, then uploads a new `keys/<username>.key.enc` encrypted with the new passphrase. Shared `.env` ciphertext in org vaults is **not** re-encrypted. After you confirm the new passphrase, a **passphrase fingerprint** is printed to **stderr** (see **Passphrase fingerprint** under Encryption above).
 
 **Afterwards:** Run `vaultenv login` on other machines with the **new** passphrase. Your keypair is unchanged, so access to existing vaults is preserved.
 

@@ -1,21 +1,50 @@
 package crypto
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"unicode"
 
 	"golang.org/x/term"
+	"golang.org/x/text/unicode/norm"
 )
 
 const minPassphraseLen = 12
 
-// NormalizePassphrase trims leading and trailing Unicode whitespace as defined by
-// strings.TrimSpace, including \r and \n. Use on every passphrase read from the
-// terminal so pasted passphrases and Windows line endings do not break unlock.
-// Intentional leading/trailing spaces in a passphrase are not supported after normalization.
+// NormalizePassphrase prepares a passphrase read from the terminal for use with
+// Argon2 and storage. It:
+//  1. Trims leading/trailing Unicode whitespace (strings.TrimSpace).
+//  2. Strips a leading UTF-8 BOM (U+FEFF) if present (not removed by TrimSpace).
+//  3. Applies Unicode NFC so the same visual string yields the same UTF-8 bytes
+//     across OS/IME normalization differences (NFD vs NFC).
+//
+// Intentional leading/trailing spaces in a passphrase are not supported.
+// Rare passphrases that depend on a specific non-NFC byte sequence for non-ASCII
+// characters may need passphrase rotate after upgrading.
 func NormalizePassphrase(s string) string {
-	return strings.TrimSpace(s)
+	s = strings.TrimSpace(s)
+	for strings.HasPrefix(s, "\ufeff") {
+		s = strings.TrimPrefix(s, "\ufeff")
+	}
+	return norm.NFC.String(s)
+}
+
+// PassphraseFingerprint returns the UTF-8 byte length and hex-encoded SHA-256 of
+// the passphrase bytes (after the caller has applied NormalizePassphrase).
+func PassphraseFingerprint(passphrase string) (length int, sha256Hex string) {
+	b := []byte(passphrase)
+	sum := sha256.Sum256(b)
+	return len(b), hex.EncodeToString(sum[:])
+}
+
+// PrintPassphraseFingerprint writes length and SHA-256 of the passphrase to stderr
+// for cross-machine verification without printing the secret.
+func PrintPassphraseFingerprint(label string, passphrase string) {
+	n, h := PassphraseFingerprint(passphrase)
+	fmt.Fprintf(os.Stderr, "Passphrase fingerprint [%s]: length=%d sha256=%s\n", label, n, h)
 }
 
 // ValidatePassphrase checks that a passphrase meets the minimum requirements:

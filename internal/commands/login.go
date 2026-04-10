@@ -118,6 +118,7 @@ func setupKeys(store storage.Provider, username string) error {
 	if err != nil {
 		return err
 	}
+	crypto.PrintPassphraseFingerprint("first-time vault passphrase", passphrase)
 
 	priv, pub, err := crypto.GenerateKeyPair()
 	if err != nil {

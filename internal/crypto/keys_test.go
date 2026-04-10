@@ -53,6 +53,31 @@ func TestDerivePublicKeyMatchesGenerate(t *testing.T) {
 	}
 }
 
+func TestEncryptDecryptPrivateKeyRoundtripNFDNFC(t *testing.T) {
+	priv, _, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	nfc := "MyP@ssw0rd1" + "\u00e9" + "3"
+	nfd := "MyP@ssw0rd1" + "e\u0301" + "3"
+	encPass := NormalizePassphrase(nfc)
+	decPass := NormalizePassphrase(nfd)
+	if encPass != decPass {
+		t.Fatalf("normalized passes should match: %q vs %q", encPass, decPass)
+	}
+	encrypted, err := EncryptPrivateKey(priv, encPass)
+	if err != nil {
+		t.Fatalf("EncryptPrivateKey: %v", err)
+	}
+	decrypted, err := DecryptPrivateKey(encrypted, decPass)
+	if err != nil {
+		t.Fatalf("DecryptPrivateKey: %v", err)
+	}
+	if *decrypted != *priv {
+		t.Error("decrypted key should match original")
+	}
+}
+
 func TestEncryptDecryptPrivateKeyRoundtrip(t *testing.T) {
 	priv, _, err := GenerateKeyPair()
 	if err != nil {
