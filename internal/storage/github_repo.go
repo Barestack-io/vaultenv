@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -83,12 +84,27 @@ func (g *GitHubStorage) ReadFile(repo, path string) ([]byte, error) {
 		return nil, nil
 	}
 
-	content, err := fc.GetContent()
-	if err != nil {
-		return nil, fmt.Errorf("decoding content: %w", err)
+	if fc.Content == nil {
+		return nil, nil
 	}
 
-	return []byte(content), nil
+	// go-github v68 GetContent() passes the raw API base64 string straight
+	// to base64.StdEncoding.DecodeString, which does NOT tolerate whitespace.
+	// GitHub's Contents API returns base64 with embedded newlines, so binary
+	// files silently decode to the wrong bytes. Decode ourselves after
+	// stripping whitespace to get a correct round-trip.
+	cleaned := strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == ' ' {
+			return -1
+		}
+		return r
+	}, *fc.Content)
+	decoded, err := base64.StdEncoding.DecodeString(cleaned)
+	if err != nil {
+		return nil, fmt.Errorf("decoding content of %s: %w", path, err)
+	}
+
+	return decoded, nil
 }
 
 func (g *GitHubStorage) WriteFile(repo, path string, content []byte) error {
