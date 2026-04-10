@@ -24,6 +24,9 @@ func (g *GitHubStorage) RepoExists(owner, name string) (bool, error) {
 		if isNotFound(err) {
 			return false, nil
 		}
+		if isUnauthorized(err) {
+			return false, fmt.Errorf("GitHub token expired or revoked. Run 'vaultenv login' to re-authenticate, then try again")
+		}
 		return false, err
 	}
 	return true, nil
@@ -70,6 +73,9 @@ func (g *GitHubStorage) ReadFile(repo, path string) ([]byte, error) {
 		if isNotFound(err) {
 			return nil, nil
 		}
+		if isUnauthorized(err) {
+			return nil, fmt.Errorf("GitHub token expired or revoked. Run 'vaultenv login' to re-authenticate, then try again")
+		}
 		return nil, fmt.Errorf("reading %s from %s: %w", path, repo, err)
 	}
 
@@ -107,6 +113,9 @@ func (g *GitHubStorage) WriteFile(repo, path string, content []byte) error {
 
 	_, _, err = g.client.Repositories.CreateFile(ctx, owner, name, path, opts)
 	if err != nil {
+		if isUnauthorized(err) {
+			return fmt.Errorf("GitHub token expired or revoked. Run 'vaultenv login' to re-authenticate, then try again")
+		}
 		return fmt.Errorf("writing %s to %s: %w", path, repo, err)
 	}
 
@@ -131,4 +140,24 @@ func isNotFound(err error) bool {
 	}
 	errStr := err.Error()
 	return strings.Contains(errStr, "404") || strings.Contains(errStr, "Not Found")
+}
+
+func isUnauthorized(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "401") || strings.Contains(errStr, "Bad credentials")
+}
+
+// WrapGitHubError returns a user-friendly error for common GitHub API failures
+// (expired token, revoked token, etc.). Falls back to the original error otherwise.
+func WrapGitHubError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if isUnauthorized(err) {
+		return fmt.Errorf("GitHub token expired or revoked. Run 'vaultenv login' to re-authenticate, then try again")
+	}
+	return err
 }

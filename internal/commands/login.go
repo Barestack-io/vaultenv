@@ -84,6 +84,7 @@ func setupKeys(store storage.Provider, username string) error {
 				if err != nil {
 					return err
 				}
+				crypto.PrintPassphraseFingerprint("unlock attempt", passphrase)
 				privKey, err = crypto.DecryptPrivateKey(encKey, passphrase)
 				if err == nil {
 					break

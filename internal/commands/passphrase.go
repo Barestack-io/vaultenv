@@ -72,7 +72,7 @@ func runPassphraseRotate(cmd *cobra.Command, args []string) error {
 
 	store := storage.NewGitHubStorage(cfg.AccessToken)
 	if err := personal.RotatePassphrase(store, cfg.Username, current, newPass); err != nil {
-		return err
+		return storage.WrapGitHubError(err)
 	}
 
 	fmt.Println("Vault passphrase updated. Other machines can use vaultenv login with the new passphrase.")
@@ -105,7 +105,7 @@ func runPassphraseRecover(cmd *cobra.Command, args []string) error {
 
 	store := storage.NewGitHubStorage(cfg.AccessToken)
 	if err := personal.RecoverPassphraseFromLocalKey(store, cfg.Username, privKey, newPass); err != nil {
-		return err
+		return storage.WrapGitHubError(err)
 	}
 
 	fmt.Println("Recovery complete. Use this new passphrase when you run vaultenv login on other machines.")
