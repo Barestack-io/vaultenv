@@ -77,6 +77,7 @@ func setupKeys(store storage.Provider, username string) error {
 			return fmt.Errorf("reading encrypted key: %w", err)
 		}
 		if encKey != nil {
+			crypto.PrintBlobFingerprint("encrypted key from GitHub", encKey)
 			fmt.Println("Found existing encryption keys. Enter your vault passphrase to unlock.")
 			var privKey *[32]byte
 			for attempt := 1; attempt <= maxVaultPassphraseAttempts; attempt++ {

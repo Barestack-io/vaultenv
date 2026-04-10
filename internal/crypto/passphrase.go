@@ -47,6 +47,13 @@ func PrintPassphraseFingerprint(label string, passphrase string) {
 	fmt.Fprintf(os.Stderr, "Passphrase fingerprint [%s]: length=%d sha256=%s\n", label, n, h)
 }
 
+// PrintBlobFingerprint writes length and SHA-256 of an arbitrary byte slice to stderr.
+// Use to verify encrypted key blobs match between write (recover/rotate) and read (login).
+func PrintBlobFingerprint(label string, data []byte) {
+	sum := sha256.Sum256(data)
+	fmt.Fprintf(os.Stderr, "Blob fingerprint [%s]: length=%d sha256=%s\n", label, len(data), hex.EncodeToString(sum[:]))
+}
+
 // ValidatePassphrase checks that a passphrase meets the minimum requirements:
 // - at least 12 characters
 // - at least one uppercase letter

@@ -38,10 +38,17 @@ func RecoverPassphraseFromLocalKey(store storage.Provider, username string, priv
 	if err != nil {
 		return fmt.Errorf("encrypting private key: %w", err)
 	}
+	crypto.PrintBlobFingerprint("encrypted key before upload", newEnc)
 
 	if err := store.WriteFile(repo, keyPath, newEnc); err != nil {
 		return fmt.Errorf("uploading encrypted key: %w", err)
 	}
+
+	verifyEnc, err := store.ReadFile(repo, keyPath)
+	if err != nil {
+		return fmt.Errorf("verifying uploaded key: %w", err)
+	}
+	crypto.PrintBlobFingerprint("encrypted key read back from GitHub", verifyEnc)
 
 	if err := crypto.SaveKeyPair(privKey, storedPub); err != nil {
 		return fmt.Errorf("saving keys locally: %w", err)

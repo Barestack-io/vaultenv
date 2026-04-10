@@ -50,6 +50,7 @@ func RotatePassphrase(store storage.Provider, username, currentPassphrase, newPa
 	if err != nil {
 		return fmt.Errorf("encrypting private key: %w", err)
 	}
+	crypto.PrintBlobFingerprint("encrypted key before upload", newEnc)
 
 	if err := store.WriteFile(repo, keyPath, newEnc); err != nil {
 		return fmt.Errorf("uploading encrypted key: %w", err)
