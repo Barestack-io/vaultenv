@@ -18,7 +18,11 @@ authorized team members.`,
 
 func Execute() error {
 	err := rootCmd.Execute()
-	waitForBackgroundUpdateCheck()
+	// Install script and other wrappers set VAULTENV_NO_UPDATE_CHECK=1 for smoke
+	// invocations so the process exits immediately (no network wait).
+	if os.Getenv("VAULTENV_NO_UPDATE_CHECK") == "" {
+		waitForBackgroundUpdateCheck()
+	}
 	return err
 }
 
