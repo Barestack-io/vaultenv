@@ -258,9 +258,25 @@ vaultenv passphrase rotate
 
 **Requirements:** You must already be logged in (`vaultenv login`). The command is interactive: it asks for your current passphrase, then for a new passphrase twice (with the same strength rules as first-time setup).
 
-**What it does:** Downloads your encrypted private key from `<username>/vaultenv-secrets`, decrypts it with the current passphrase, re-encrypts with the new passphrase, uploads the updated `keys/<username>.key.enc`, and refreshes your local `~/.config/vaultenv/keys/` files. Shared or personal `.env` ciphertext in org vaults is **not** re-encrypted; only the wrapper around your long-term private key changes.
+**What it does:** Downloads your encrypted private key from `<username>/vaultenv-secrets`, decrypts it with the current passphrase, re-encrypts with the new passphrase, uploads the updated `keys/<username>.key.enc`, and refreshes your local `keys/` files under the vaultenv config directory. Shared or personal `.env` ciphertext in org vaults is **not** re-encrypted; only the wrapper around your long-term private key changes.
 
-**If you cannot remember your current passphrase:** This command cannot help. Recover `private.key` from a machine where you are still logged in or from a secure backup, or work through vault access with your team if you need to be re-authorized with a new keypair.
+**If you cannot remember your current passphrase:** Use **`vaultenv passphrase recover`** below if you still have the raw `private.key` on disk and a valid login token; otherwise recover `private.key` from a backup or work with your team if you need a new keypair.
+
+---
+
+### `vaultenv passphrase recover`
+
+Set a **new** vault passphrase when you forgot the old one but still have **`keys/private.key`** on this machine (32-byte raw key after a working `pull` / `login`) **and** you are still logged in (`config.json` with a valid GitHub token).
+
+```bash
+vaultenv passphrase recover
+```
+
+**What it does:** Reads `keys/<username>.pub` from your personal GitHub repo (`<username>/vaultenv-secrets`), checks that it matches your local `private.key`, then uploads a new `keys/<username>.key.enc` encrypted with the new passphrase. Shared `.env` ciphertext in org vaults is **not** re-encrypted.
+
+**Afterwards:** Run `vaultenv login` on other machines with the **new** passphrase. Your keypair is unchanged, so access to existing vaults is preserved.
+
+**Config paths:** Raw keys live under `<config-dir>/keys/`. Default config directory is `~/.config/vaultenv` on Linux (XDG) and **`~/Library/Application Support/vaultenv`** on macOS. Set **`VAULTENV_CONFIG_DIR`** to override.
 
 ---
 
@@ -465,7 +481,7 @@ jobs:
 | `VAULTENV_DEPLOY_KEY`   | Deployment key token for non-interactive decryption                     |
 | `VAULTENV_GITHUB_TOKEN` | GitHub token for vault repo access (takes priority over `GITHUB_TOKEN`) |
 | `GITHUB_TOKEN`          | Fallback GitHub token if `VAULTENV_GITHUB_TOKEN` is not set             |
-| `VAULTENV_CONFIG_DIR`   | Override the config directory (default: `~/.config/vaultenv`)           |
+| `VAULTENV_CONFIG_DIR`   | Override the config directory (default: `~/.config/vaultenv` on Linux; macOS: `~/Library/Application Support/vaultenv`) |
 
 ## Local File Layout
 

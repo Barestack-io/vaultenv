@@ -106,3 +106,68 @@ func TestRotatePassphraseWrongPassphrase(t *testing.T) {
 		t.Fatal("expected error for wrong current passphrase")
 	}
 }
+
+func TestRecoverPassphraseFromLocalKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("VAULTENV_CONFIG_DIR", tmpDir)
+
+	const user = "dana"
+	newPass := "NewR3cov3r!Pass"
+
+	priv, pub, err := crypto.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mock := storage.NewMockStorage()
+	repo := VaultRepo(user)
+	if err := mock.CreateRepo(user, SecretsRepoName, true); err != nil {
+		t.Fatal(err)
+	}
+	// Only .pub is required; existing .key.enc is not read.
+	if err := mock.WriteFile(repo, PublicKeyPath(user), crypto.EncodePublicKey(pub)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RecoverPassphraseFromLocalKey(mock, user, priv, newPass); err != nil {
+		t.Fatalf("RecoverPassphraseFromLocalKey: %v", err)
+	}
+
+	gotEnc, err := mock.ReadFile(repo, EncryptedPrivateKeyPath(user))
+	if err != nil || gotEnc == nil {
+		t.Fatalf("read back enc: err=%v len=%d", err, len(gotEnc))
+	}
+	decPriv, err := crypto.DecryptPrivateKey(gotEnc, newPass)
+	if err != nil {
+		t.Fatalf("Decrypt with new pass: %v", err)
+	}
+	if *decPriv != *priv {
+		t.Fatal("decrypted private key mismatch")
+	}
+
+	localPriv, err := crypto.LoadPrivateKey()
+	if err != nil {
+		t.Fatalf("LoadPrivateKey: %v", err)
+	}
+	if *localPriv != *priv {
+		t.Fatal("local private key should match after recover")
+	}
+}
+
+func TestRecoverPassphraseFromLocalKeyPublicKeyMismatch(t *testing.T) {
+	t.Setenv("VAULTENV_CONFIG_DIR", t.TempDir())
+
+	const user = "erin"
+	priv, _, _ := crypto.GenerateKeyPair()
+	_, wrongPub, _ := crypto.GenerateKeyPair()
+
+	mock := storage.NewMockStorage()
+	_ = mock.CreateRepo(user, SecretsRepoName, true)
+	repo := VaultRepo(user)
+	_ = mock.WriteFile(repo, PublicKeyPath(user), crypto.EncodePublicKey(wrongPub))
+
+	err := RecoverPassphraseFromLocalKey(mock, user, priv, "AnyN3wP@ss!")
+	if err == nil {
+		t.Fatal("expected error when local private key does not match GitHub public key")
+	}
+}
