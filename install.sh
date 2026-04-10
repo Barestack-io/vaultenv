@@ -158,12 +158,12 @@ verify_install() {
     esac
 
     if command -v "$BINARY" >/dev/null 2>&1; then
-        VERSION=$("$BINARY" --help 2>&1 | head -n1)
+        VERSION=$("$BINARY" version </dev/null 2>&1 | head -n1)
         echo ""
         echo "vaultenv installed successfully."
         echo "  ${VERSION}"
     elif [ -x "${INSTALL_DIR}/${BINARY}" ]; then
-        VERSION=$("${INSTALL_DIR}/${BINARY}" --help 2>&1 | head -n1)
+        VERSION=$("${INSTALL_DIR}/${BINARY}" version </dev/null 2>&1 | head -n1)
         echo ""
         echo "vaultenv installed successfully."
         echo "  ${VERSION}"
