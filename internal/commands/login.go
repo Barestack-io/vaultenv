@@ -15,6 +15,12 @@ import (
 
 const maxVaultPassphraseAttempts = 5
 
+// promptPassphrase is the passphrase prompt entry point used by setupKeys.
+// It is a package-level var so tests can replace it with a stub that returns
+// a deterministic passphrase without touching the terminal. Production code
+// always uses crypto.PromptPassphrase.
+var promptPassphrase = crypto.PromptPassphrase
+
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with GitHub using device flow",
@@ -160,7 +166,7 @@ func runFirstTimeSetup(store storage.Provider, username string, state vaultState
 
 	fmt.Println("First-time setup: generating encryption keys.")
 	fmt.Println("Choose a vault passphrase to protect your private key.")
-	passphrase, err := crypto.PromptPassphrase(true)
+	passphrase, err := promptPassphrase(true)
 	if err != nil {
 		return err
 	}
@@ -224,7 +230,7 @@ func unlockExistingVault(store storage.Provider, username string) error {
 	fmt.Println("Found existing encryption keys. Enter your vault passphrase to unlock.")
 	var privKey *[32]byte
 	for attempt := 1; attempt <= maxVaultPassphraseAttempts; attempt++ {
-		passphrase, err := crypto.PromptPassphrase(false)
+		passphrase, err := promptPassphrase(false)
 		if err != nil {
 			return err
 		}
