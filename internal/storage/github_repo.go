@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-github/v68/github"
@@ -84,27 +85,34 @@ func (g *GitHubStorage) ReadFile(repo, path string) ([]byte, error) {
 		return nil, nil
 	}
 
-	if fc.Content == nil {
-		return nil, nil
+	// go-github v68 GetContent() silently corrupts binary files: it passes
+	// GitHub's line-wrapped base64 to base64.StdEncoding which does not
+	// tolerate whitespace. Use the raw download URL instead — it serves the
+	// exact bytes without any encoding layer.
+	if fc.DownloadURL == nil || *fc.DownloadURL == "" {
+		return nil, fmt.Errorf("no download URL for %s in %s", path, repo)
 	}
 
-	// go-github v68 GetContent() passes the raw API base64 string straight
-	// to base64.StdEncoding.DecodeString, which does NOT tolerate whitespace.
-	// GitHub's Contents API returns base64 with embedded newlines, so binary
-	// files silently decode to the wrong bytes. Decode ourselves after
-	// stripping whitespace to get a correct round-trip.
-	cleaned := strings.Map(func(r rune) rune {
-		if r == '\n' || r == '\r' || r == ' ' {
-			return -1
-		}
-		return r
-	}, *fc.Content)
-	decoded, err := base64.StdEncoding.DecodeString(cleaned)
+	dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, *fc.DownloadURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("decoding content of %s: %w", path, err)
+		return nil, fmt.Errorf("creating download request for %s: %w", path, err)
+	}
+	dlResp, err := http.DefaultClient.Do(dlReq)
+	if err != nil {
+		return nil, fmt.Errorf("downloading %s: %w", path, err)
+	}
+	defer dlResp.Body.Close()
+
+	if dlResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("downloading %s: HTTP %d", path, dlResp.StatusCode)
 	}
 
-	return decoded, nil
+	body, err := io.ReadAll(dlResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading download body for %s: %w", path, err)
+	}
+
+	return body, nil
 }
 
 func (g *GitHubStorage) WriteFile(repo, path string, content []byte) error {
