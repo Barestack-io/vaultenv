@@ -61,7 +61,7 @@ test: ## Run all tests
 test-v: ## Run all tests with verbose output
 	go test ./... -v -count=1
 
-TESTABLE_PKGS := ./internal/config ./internal/crypto ./internal/gitutil ./internal/storage ./internal/vault
+TESTABLE_PKGS := ./internal/commands ./internal/config ./internal/crypto ./internal/gitutil ./internal/storage ./internal/vault
 
 .PHONY: test-cover
 test-cover: ## Run tests with coverage report
