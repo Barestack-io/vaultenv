@@ -2,7 +2,9 @@ package crypto
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +22,9 @@ const (
 	argon2KeyLen  = 32
 	saltSize      = 16
 )
+
+// ErrWrongPrivateKeyPassphrase is returned when the passphrase does not decrypt the stored key blob.
+var ErrWrongPrivateKeyPassphrase = errors.New("wrong passphrase")
 
 func keysDir() string {
 	if override := os.Getenv("VAULTENV_CONFIG_DIR"); override != "" {
@@ -40,6 +45,21 @@ func GenerateKeyPair() (priv *[32]byte, pub *[32]byte, err error) {
 	curve25519.ScalarBaseMult(pub, priv)
 
 	return priv, pub, nil
+}
+
+// DerivePublicKey returns the X25519 public key for the given private key.
+func DerivePublicKey(priv *[32]byte) *[32]byte {
+	pub := new([32]byte)
+	curve25519.ScalarBaseMult(pub, priv)
+	return pub
+}
+
+// PublicKeysEqual returns true if a and b are the same 32-byte X25519 public key.
+func PublicKeysEqual(a, b *[32]byte) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 
 // EncryptPrivateKey encrypts a private key with a passphrase using Argon2id + NaCl secretbox.
@@ -87,7 +107,7 @@ func DecryptPrivateKey(data []byte, passphrase string) (*[32]byte, error) {
 
 	plaintext, ok := secretbox.Open(nil, ciphertext, &nonce, &derivedKey)
 	if !ok {
-		return nil, fmt.Errorf("decryption failed (wrong passphrase?)")
+		return nil, fmt.Errorf("%w", ErrWrongPrivateKeyPassphrase)
 	}
 
 	if len(plaintext) != 32 {

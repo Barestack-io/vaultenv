@@ -59,8 +59,8 @@ func TestValidatePassphrase(t *testing.T) {
 			errContains: "at least 12 characters",
 		},
 		{
-			name:       "unicode special chars count",
-			passphrase: "MyPassword1 ",
+			name:       "unicode punctuation counts as special",
+			passphrase: "MyPassword1·",
 			wantErr:    false,
 		},
 	}
@@ -80,5 +80,14 @@ func TestValidatePassphrase(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNormalizePassphrase(t *testing.T) {
+	if got := NormalizePassphrase("  MyP@ssw0rd123  "); got != "MyP@ssw0rd123" {
+		t.Errorf("got %q want %q", got, "MyP@ssw0rd123")
+	}
+	if got := NormalizePassphrase("x\r\n"); got != "x" {
+		t.Errorf("got %q want %q", got, "x")
 	}
 }

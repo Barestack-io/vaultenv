@@ -21,6 +21,12 @@ func configDir() string {
 	return filepath.Join(dir, "vaultenv")
 }
 
+// ConfigDir returns the vaultenv configuration directory (e.g. ~/.config/vaultenv,
+// or VAULTENV_CONFIG_DIR when set).
+func ConfigDir() string {
+	return configDir()
+}
+
 func globalConfigPath() string {
 	return filepath.Join(configDir(), "config.json")
 }

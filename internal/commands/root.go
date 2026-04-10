@@ -17,11 +17,14 @@ authorized team members.`,
 }
 
 func Execute() error {
-	return rootCmd.Execute()
+	err := rootCmd.Execute()
+	waitForBackgroundUpdateCheck()
+	return err
 }
 
 func init() {
 	rootCmd.AddCommand(loginCmd)
+	rootCmd.AddCommand(passphraseCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(linkCmd)
 	rootCmd.AddCommand(pushCmd)

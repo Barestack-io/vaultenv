@@ -13,7 +13,7 @@ vaultenv offers:
 - **Team-friendly**: The vault owner controls who has access. New team members request access, the owner approves, and they're in.
 - **Works with your workflow**: Push and pull `.env` files like you push and pull code. Optional git hooks auto-sync on every `git push`.
 - **CI/CD ready**: Create scoped deployment keys so your pipelines can pull secrets without a human in the loop.
-- **Portable**: Log in from any machine with your GitHub account and vault passphrase. Your encryption keys travel with you.
+- **Portable**: Log in from any machine with your GitHub account and vault passphrase. Your encryption keys travel with you. Use `vaultenv passphrase rotate` when you want to change that passphrase without rotating your keypair.
 
 ## Supported Platforms
 
@@ -58,6 +58,15 @@ make build-all    # cross-compile for all 6 platforms
 ```
 
 **Windows**: Download the `.exe` binary from the [latest release](https://github.com/Barestack-io/vaultenv/releases/latest) and add it to your PATH. NOTE: We have not tested vaultenv on windows. YMMV!
+
+## Updating vaultenv
+
+- **Self-update (release binaries):** Run `vaultenv update`. It compares your embedded version to [GitHub Releases](https://github.com/Barestack-io/vaultenv/releases/latest), downloads the asset for your OS/arch (same names as `install.sh`), and replaces the executable. You need **write permission** on the directory that contains the binary (for `/usr/local/bin` that often means re-running `install.sh` with sudo, or using `install.sh --user` so the binary lives in `~/.local/bin`).
+- **Background reminder:** Most commands trigger an update check **at most once per 24 hours** (timestamp in `update-check.json` under your vaultenv config directory). If a newer release exists, a short message is printed to **stderr** after the command finishes (waits up to about 2.5s for the check). Checks are skipped for `vaultenv update`, `vaultenv version`, `help`, and `completion`. Set **`VAULTENV_NO_UPDATE_CHECK=1`** to disable entirely (e.g. in CI).
+- **Check only:** `vaultenv update --check` (or `-n`) prints whether a newer release exists and exits with status **1** if an update is available (status **0** if you are already current). Useful in scripts.
+- **Windows:** Replacing the running `.exe` may fail if the file is locked; if so, download the latest `.exe` from the releases page or re-run your installer.
+- **Go install:** `go install github.com/Barestack-io/vaultenv/cmd/vaultenv@latest` remains a simple upgrade path if you use the Go toolchain.
+- **Homebrew / other package managers:** Use the manager’s upgrade command, not `vaultenv update`, unless the packager documents otherwise.
 
 ## Quick Start
 
@@ -161,7 +170,9 @@ vaultenv uses **hybrid NaCl envelope encryption** -- the same cryptographic prim
 
 This means each user can only decrypt files they've been explicitly authorized for. Even if someone gets read access to the entire vault repo, the encrypted blobs are useless without the corresponding private keys.
 
-**Key portability**: Your private key is encrypted with your vault passphrase (Argon2id + secretbox) and stored in your personal vault. When you `vaultenv login` on a new machine, it downloads the encrypted key and asks for your passphrase. The underlying X25519 keypair never changes, so changing your passphrase only requires re-encrypting the key blob -- no re-encryption of any environment files.
+**Key portability**: Your private key is encrypted with your vault passphrase (Argon2id + secretbox) and stored in your personal vault. When you `vaultenv login` on a new machine, it downloads the encrypted key and asks for your passphrase. The underlying X25519 keypair never changes, so changing your passphrase only requires re-encrypting the key blob -- no re-encryption of any environment files. Use **`vaultenv passphrase rotate`** (on a machine where you can unlock) to pick a new passphrase and update the blob in your personal repo.
+
+**Cross-platform cryptography:** The same algorithms and Go implementations are used on every OS and CPU architecture vaultenv supports. Argon2id key derivation (`golang.org/x/crypto/argon2`), NaCl `secretbox` (XSalsa20-Poly1305), and X25519 (`curve25519`) are pure Go here and deterministic for a given passphrase and ciphertext. Passphrases are interpreted as UTF-8 strings; use the same characters on every machine. Hidden terminal input is handled via `golang.org/x/term` on Unix and Windows. Raw key files under `keys/` are 32-byte binary blobs (not text), so line endings do not matter.
 
 ## Security Considerations
 
@@ -188,6 +199,30 @@ Before using vaultenv, understand the security model:
 
 ## Complete Command Reference
 
+### `vaultenv version`
+
+Print build metadata (version tag, git commit, build time). Release builds set these via linker flags in CI; local `make build` uses `git describe` or `dev`.
+
+```bash
+vaultenv version
+vaultenv --version   # short form (version number only)
+```
+
+---
+
+### `vaultenv update`
+
+Download the latest release binary from GitHub and replace the running `vaultenv` executable (TLS to GitHub only; same asset names as [install.sh](install.sh)).
+
+```bash
+vaultenv update              # upgrade if a newer semver release exists
+vaultenv update --check      # exit 1 if a newer release exists; no download
+```
+
+**Permissions:** The parent directory of the binary must be writable. If `update` fails with permission denied, install to a user-writable path (`install.sh --user`) or run your usual installer with elevated permissions.
+
+---
+
 ### `vaultenv login`
 
 Authenticate with GitHub and set up your encryption keys.
@@ -203,7 +238,29 @@ vaultenv login
 4. If this is your first time: generates an X25519 keypair, asks you to create a vault passphrase, encrypts the private key, creates your personal vault repo, and uploads the encrypted key
 5. If you've used vaultenv before: downloads your encrypted private key from your personal vault and asks for your passphrase to decrypt it
 
+If decryption fails because of a mistyped passphrase, you get **up to five attempts** before the command exits, so you do not have to repeat the GitHub device flow for a single typo.
+
 **Passphrase requirements:** Minimum 12 characters, at least one uppercase letter, one digit, and one special character.
+
+**Creating a passphrase:** You enter it twice (confirmation) so a typo is less likely to lock you out.
+
+**Whitespace:** Leading and trailing whitespace, including stray newlines often introduced when pasting, is stripped before validation and before decrypting your key. Deliberate spaces *inside* the passphrase are kept. If you created an older passphrase that relied on leading or trailing spaces alone, unlock may fail after upgrading; recover from a machine that still has a working `vaultenv` install or backup of `~/.config/vaultenv/keys/`, then run **`vaultenv passphrase rotate`** to set a known passphrase.
+
+---
+
+### `vaultenv passphrase rotate`
+
+Change the **vault passphrase** (the one that encrypts your private key in your personal GitHub repo). This is **not** your GitHub account password.
+
+```bash
+vaultenv passphrase rotate
+```
+
+**Requirements:** You must already be logged in (`vaultenv login`). The command is interactive: it asks for your current passphrase, then for a new passphrase twice (with the same strength rules as first-time setup).
+
+**What it does:** Downloads your encrypted private key from `<username>/vaultenv-secrets`, decrypts it with the current passphrase, re-encrypts with the new passphrase, uploads the updated `keys/<username>.key.enc`, and refreshes your local `~/.config/vaultenv/keys/` files. Shared or personal `.env` ciphertext in org vaults is **not** re-encrypted; only the wrapper around your long-term private key changes.
+
+**If you cannot remember your current passphrase:** This command cannot help. Recover `private.key` from a machine where you are still logged in or from a secure backup, or work through vault access with your team if you need to be re-authorized with a new keypair.
 
 ---
 

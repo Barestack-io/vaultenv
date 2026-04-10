@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -34,6 +35,21 @@ func TestGenerateKeyPairUniqueness(t *testing.T) {
 	}
 	if *priv1 == *priv2 {
 		t.Error("two generated keypairs should have different private keys")
+	}
+}
+
+func TestDerivePublicKeyMatchesGenerate(t *testing.T) {
+	priv, pub, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived := DerivePublicKey(priv)
+	if !PublicKeysEqual(pub, derived) {
+		t.Fatal("DerivePublicKey should match GenerateKeyPair public key")
+	}
+	var zero [32]byte
+	if PublicKeysEqual(pub, (*[32]byte)(&zero)) {
+		t.Fatal("PublicKeysEqual should reject zero key")
 	}
 }
 
@@ -78,12 +94,18 @@ func TestDecryptPrivateKeyWrongPassphrase(t *testing.T) {
 	if err == nil {
 		t.Error("expected error when decrypting with wrong passphrase")
 	}
+	if !errors.Is(err, ErrWrongPrivateKeyPassphrase) {
+		t.Errorf("expected ErrWrongPrivateKeyPassphrase, got %v", err)
+	}
 }
 
 func TestDecryptPrivateKeyTruncatedData(t *testing.T) {
 	_, err := DecryptPrivateKey([]byte("short"), "pass")
 	if err == nil {
 		t.Error("expected error for truncated data")
+	}
+	if errors.Is(err, ErrWrongPrivateKeyPassphrase) {
+		t.Error("truncated data should not be classified as wrong passphrase")
 	}
 }
 
