@@ -6,8 +6,20 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v68/github"
+)
+
+// writeFileMaxAttempts and writeFileBaseBackoff control the bounded retry on
+// 404 from the Contents API. A 404 immediately after CreateRepo is the
+// well-known GitHub post-creation race: the repos endpoint returns 201 before
+// the Contents service has a consistent view of the new repo / default branch.
+// Retrying only on 404 (never on other errors) keeps this from masking real
+// not-found bugs.
+const (
+	writeFileMaxAttempts = 5
+	writeFileBaseBackoff = 200 * time.Millisecond
 )
 
 type GitHubStorage struct {
@@ -135,15 +147,26 @@ func (g *GitHubStorage) WriteFile(repo, path string, content []byte) error {
 		SHA:     sha,
 	}
 
-	_, _, err = g.client.Repositories.CreateFile(ctx, owner, name, path, opts)
-	if err != nil {
+	// Retry on 404 only: the Contents API can return 404 briefly after a
+	// fresh CreateRepo because the Contents service is not synchronously
+	// consistent with the repo creation endpoint. Bounded backoff keeps
+	// this from hanging and avoids masking genuine not-found errors from
+	// later, non-first-write calls.
+	backoff := writeFileBaseBackoff
+	for attempt := 1; ; attempt++ {
+		_, _, err = g.client.Repositories.CreateFile(ctx, owner, name, path, opts)
+		if err == nil {
+			return nil
+		}
 		if isUnauthorized(err) {
 			return fmt.Errorf("GitHub token expired or revoked. Run 'vaultenv login' to re-authenticate, then try again")
 		}
-		return fmt.Errorf("writing %s to %s: %w", path, repo, err)
+		if !isNotFound(err) || attempt >= writeFileMaxAttempts {
+			return fmt.Errorf("writing %s to %s: %w", path, repo, err)
+		}
+		time.Sleep(backoff)
+		backoff *= 2
 	}
-
-	return nil
 }
 
 func (g *GitHubStorage) HasRepoAccess(owner, name string) (bool, error) {
